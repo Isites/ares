@@ -21,6 +21,16 @@ func diffPart(i int, rv []rune) (j int) {
 	return j
 }
 
+// 判断是否全为0
+func zeroRune(s []rune) bool {
+	for _, r := range s {
+		if r != '0' && r != '.' {
+			return false
+		}
+	}
+	return true
+}
+
 // CompareVersion 比较两个appversion的大小
 // return 0 means ver1 == ver2
 // return 1 means ver1 > ver2
@@ -65,8 +75,14 @@ func CompareVersion(ver1, ver2 string) (ret int) {
 		}
 	}
 	if i < l1 {
+		if zeroRune(rv1[i:]) {
+			return 0
+		}
 		ret = 1
 	} else if j < l2 {
+		if zeroRune(rv2[j:]) {
+			return 0
+		}
 		ret = -1
 	}
 	return ret
@@ -99,8 +115,6 @@ var (
 // return 1 means ver1 > ver2
 // return -1 means ver1 < ver2
 func CompareVersionWithCache(ver1, ver2 string) int {
-	// ver1 = strings.TrimSpace(ver1)
-	// ver2 = strings.TrimSpace(ver2)
 	// fast path
 	if ver1 == ver2 {
 		return 0
@@ -131,8 +145,11 @@ func CompareVersionWithCache(ver1, ver2 string) int {
 		cache.Set(ver2, cmv2)
 	}
 	// compare ver str
-	v1l, v2l := len(cmv1), len(cmv2)
-	for i := 0; i < len(cmv1) && i < len(cmv2); i++ {
+	var (
+		v1l, v2l = len(cmv1), len(cmv2)
+		i        = 0
+	)
+	for ; i < len(cmv1) && i < len(cmv2); i++ {
 		res := 0
 		// can use int compare
 		if cmv1[i].canInt && cmv2[i].canInt {
@@ -146,10 +163,27 @@ func CompareVersionWithCache(ver1, ver2 string) int {
 			return -1
 		}
 	}
-	if v1l > v2l {
-		return 1
-	} else if v1l < v2l {
-		return -1
+	// compare left part
+	if i < v1l {
+		for ; i < v1l; i++ {
+			if cmv1[i].canInt && cmv1[i].iv != 0 {
+				return 1
+			}
+			if !zeroRune([]rune(cmv1[i].sv)) {
+				return 1
+			}
+		}
+	} else if i < v2l {
+		for ; i < v2l; i++ {
+			for ; i < v1l; i++ {
+				if cmv2[i].canInt && cmv2[i].iv != 0 {
+					return -1
+				}
+				if !zeroRune([]rune(cmv2[i].sv)) {
+					return -1
+				}
+			}
+		}
 	}
 	return 0
 }
